@@ -43,5 +43,16 @@
    ```
  -->
 
+## Suggested testing as you deploy
+
+a) Test SMS gateway functionaloty
+    a.1) set Twilio environment variables in .env file (or by secrets)
+    a.2) run SMS test to your twilio 'virtual phone' as 'to phone' target
+        `python live_test_sms_main.py send --message "yo #3"  --to_phone "+18777804236`
+
+b) cry ? What next here?  
 
 
+## See Also 
+Other readings, especially tool or libraries this uses
+- [python-dotenv](https://github.com/theskumar/python-dotenv)
