@@ -17,10 +17,6 @@ from rich.text import Text
 
 console = Console()
 
-def create_test_sms_service():
-    """Create SMS service instance for testing"""
-    return TwilioSMSService()
-
 @click.group()
 def cli():
     """SMS Service Test Tool for Grocery Bot"""
@@ -28,20 +24,98 @@ def cli():
 
 @cli.command()
 def connect():
-    """Test connecting to SMS service"""
+    connect_inner()
+
+def connect_inner():
+    """Builds SMS connector bridge, runs tests.
+    """
     console.print("[bold]Testing SMS Connection[/bold]")
     console.print("-" * 50)
     
-    sms_service = create_test_sms_service()
+    sms_service = TwilioSMSService(do_inbound_server=True)
     
-    if sms_service.client:
-        console.print("[green]✓ SMS service is connected and ready[/green]")
-    else:
-        console.print("[yellow]⚠ SMS service is not connected (no credentials)[/yellow]")
+    if sms_service:
+        console.print(" SMS client created.")
+        if sms_service.check_outbound_connection(): 
+            console.print("[green]✓ SMS Outbound service is connected and ready[/green]")
+        else: 
+            console.print("[yellow]⚠ SMS Outbound service not connected[/yellow]")
+        if sms_service.check_inbound_connection(): 
+            console.print("[green]✓ SMS Inbound service is connected and ready[/green]")
+        else: 
+            console.print("[yellow]⚠ SMS Inbound service not connected[/yellow]")
+    else: #no client object 
+        console.print("[yellow]⚠ SMS service not created client [/yellow]")
         console.print("[yellow]⚠ Function Calls will simply print to console[/yellow]")
-        console.print("To enable real SMS sending, configure Twilio credentials in .env file")
-        console.print("See contributing.md for more info")
+        console.print("See contributing.md for how to configure credentials")
+    return sms_service
  
+
+@cli.command()
+@click.option('--from_phone', '-f', default='+15551234567', help='Phone number receiving message')
+#@click.option('--message', '-m', required=True, help='Message content to simulate receiving')
+#@click.option('--message_sid', '-s', default='test_msg_123', help='Twilio message SID')
+def receive_vial_flask(from_phone): #, message, message_sid):
+    """Test receiving one SMS message (simulate Twilio webhook)"""
+    console.print(f"[bold]Testing SMS Receive[/bold]")
+    console.print(f"From (mock?) Phone: {from_phone}")
+#    console.print(f"Message: {message}")
+#    console.print(f"Message SID: {message_sid}")
+    console.print("-" * 50)
+
+    # create our SMS connection 
+    sms_service = connect_inner()
+
+    if sms_service: 
+        # check flags to make sure we have ngrok ? 
+        ## Flask runs in the background forever after this call (for now)
+        sms_service.run_flask_receiver()
+
+    # Create simulated Twilio webhook data
+    mock_webhook_data = {
+        'From': "+15558675309", #fake of phone that sent the message, 
+        'Body': "Ahoy World!", #sms message,
+    } # See [1] below for example live data 
+    
+    
+#     console.print("[blue]Simulated webhook data:[/blue]")
+#     console.print(json.dumps(webhook_data, indent=2))
+#     console.print("-" * 30)
+    
+#     # Parse the webhook data
+#     parsed_data = sms_service.parse_twilio_webhook(webhook_data)
+    
+#     console.print("[green]Parsed webhook data:[/green]")
+#     table = Table(show_header=True, header_style="bold magenta")
+#     table.add_column("Field", style="cyan")
+#     table.add_column("Value", style="white")
+    
+#     for key, value in parsed_data.items():
+#         table.add_row(key, str(value))
+    
+#     console.print(table)
+    
+#     # Generate TwiML response
+#     #response_message = f"Received: '{message}' from {parsed_data['phone_number']}"
+#     response_message = "Faked response message during dev"
+#     twiml_response = sms_service.create_twiml_response(response_message)
+    
+#     console.print(f"\n[green]Generated TwiML response:[/green]")
+#     console.print(twiml_response)
+    
+#     console.print(f"\n[yellow]✓ Successfully simulated receiving SMS message[/yellow]")
+
+# Footnote [1]
+"""
+
+ImmutableMultiDict([('ToCountry', 'US'), ('ToState', ''), 
+('SmsMessageSid', 'SMef812c554489ed70ba2fb0674d7b9277'), 
+('NumMedia', '0'), ('ToCity', ''), ('FromZip', '19103'), 
+('SmsSid', 'SMef812c554489ed70ba2fb0674d7b9277'), ('FromState', 'PA'), 
+('SmsStatus', 'received'), ('FromCity', 'PHILADELPHIA'), ('Body', 'Test 1'), 
+('FromCountry', 'US'), ('To', '+18889008911'), ('MessagingServiceSid', 'MGb186c5fa0e8e5957e58362ff09f3d2d5'), 
+('ToZip', ''), ('NumSegments', '1'), ('MessageSid', 'SMef812c554489ed70ba2fb0674d7b9277'), 
+('AccountSid', 'ACbc2adfaa4027522eefdf0d6389c7b7e2'), ('From', '+12158286822'), ('ApiVersion', '2010-04-01')])"""
 
 @cli.command()
 @click.option('--to_phone', '-t', default='5551234567', help='Phone number to send to')
@@ -53,7 +127,8 @@ def send(to_phone, message):
     console.print(f"Message: {message}")
     console.print("-" * 50)
     
-    sms_service = create_test_sms_service()
+    #sms_service = TwilioSMSService()
+    sms_service = connect_inner()
     result = sms_service.send_sms(to_phone, message)
     
     if result:
@@ -69,7 +144,7 @@ def send(to_phone, message):
 #     console.print(f"Message: {message}")
 #     console.print("-" * 50)
     
-#     sms_service = create_test_sms_service()
+#     sms_service = TwilioSMSService()
 #     twiml_response = sms_service.create_twiml_response(message)
     
 #     console.print("[green]Generated TwiML:[/green]")
@@ -98,7 +173,7 @@ def send(to_phone, message):
 #     console.print(json.dumps(webhook_data, indent=2))
 #     console.print("-" * 50)
     
-#     sms_service = create_test_sms_service()
+#     sms_service = TwilioSMSService()
 #     parsed_data = sms_service.parse_twilio_webhook(webhook_data)
     
 #     console.print("[green]Parsed data:[/green]")
@@ -118,7 +193,7 @@ def send(to_phone, message):
 #     console.print(f"[bold]SMS Service Status Check[/bold]")
 #     console.print("-" * 50)
     
-#     sms_service = create_test_sms_service()
+#     sms_service = TwilioSMSService()
     
 #     table = Table(show_header=True, header_style="bold magenta")
 #     table.add_column("Configuration", style="cyan")
@@ -152,7 +227,7 @@ def send(to_phone, message):
 #     console.print(f"Phone: {phone}")
 #     console.print("-" * 50)
     
-#     sms_service = create_test_sms_service()
+#     sms_service = TwilioSMSService()
     
 #     # Simulate incoming messages and responses
 #     test_messages = [
@@ -208,7 +283,7 @@ def send(to_phone, message):
 #     console.print(f"Sending {count} test messages to {phone}")
 #     console.print("-" * 50)
     
-#     sms_service = create_test_sms_service()
+#     sms_service = TwilioSMSService()
     
 #     start_time = datetime.now()
 #     success_count = 0
