@@ -5,3 +5,5 @@ flask==2.3.3
 twilio==8.10.0
 python-dotenv==1.0.0    
 pyngrok
+tinydb
+black
